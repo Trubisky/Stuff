@@ -19,14 +19,15 @@ client.on('ready', () => {
   console.log('I am ready!')
 })
 
-transferToken = (amount, reception, message) => {
+transferToken = async (amount, reception, message) => {
   const data = Web3.eth.getTransactionCount(myAddress)
 
-  data.then(acnt => {
+  await data.then(account => {
     const multi = Math.pow(10, 12)
     const dataNeed = amount * multi
+
     const rawTxn = {
-      nonce: Web3.utils.toHex(acnt),
+      nonce: Web3.utils.toHex(account),
       gasPrice: '0x3b9aca00',
       gasLimit: '0x030d40',
       to: contractAddress,
@@ -44,8 +45,10 @@ transferToken = (amount, reception, message) => {
     Web3.eth.sendSignedTransaction('0x' + serializedTxn.toString('hex'), (err, hash) => {
       if (!err) {
         message.author.send(`Congratulations! You have successfully withdrawn your CuriosityCoin to your private wallet. You have been credited ${dataTable[message.author.id]['balance']} CC. You may have to wait for the transaction to go through.`)
-        dataTable[message.author.id]['balance'] = 0
-        message.author.send(`Track your CC on the blockchain as it comes to you! Your TX is: * ${hash }'*`)
+          .then(() => {
+            dataTable[message.author.id]['balance'] = 0
+            message.author.send(`Track your CC on the blockchain as it comes to you! Your TX is: * ${hash }'*`)
+          })
       } else {
         message.author.send('Transaction failed')
       }
@@ -53,22 +56,23 @@ transferToken = (amount, reception, message) => {
   })
 }
 
-openTip = (user, personal) => {
+openTip = async (user, personal) => {
   const newAccount = wallet.generate()
   const privateKey = newAccount.getPrivateKeyString()
   const accountAddress = newAccount.getChecksumAddressString()
 
-  user.send('Thank you for creating an account! Your account details are below. It is recommended to keep this information in a safe place and delete the following message. You may access your wallet using a service such as https://www.myetherwallet.com/')
+  await user.send('Thank you for creating an account! Your account details are below. It is recommended to keep this information in a safe place and delete the following message. You may access your wallet using a service such as https://www.myetherwallet.com/')
 
   richEmbed.setTitle('Your wallet information')
   richEmbed.addField('Address', accountAddress)
   richEmbed.addField('Private Key (IMPORTANT - YOU NEED THIS - DO NOT SHARE IT)', privateKey)
-  user.send(richEmbed)
-  user.send('This address has been saved as your receiving address. All tips will be sent to this address in the future.')
+
+  await user.send(richEmbed)
+  await user.send('This address has been saved as your receiving address. All tips will be sent to this address in the future.')
 
   dataTable[user.id] = {balance: 0, address: accountAddress, privateKey: privateKey, linker: null}
 
-  if (!personal) user.send('This message only has been sent to you because someone has sent you a tip - the tip will come through in a moment')
+  if (!personal) await user.send('This message only has been sent to you because someone has sent you a tip - the tip will come through in a moment')
 }
 
 client.on('message', message => {
@@ -107,17 +111,18 @@ client.on('message', message => {
       dataTable[message.author.id]['balance'] += 10
       message.author.send('Airdropped 10 CuriosityCoin')
     } catch (err) {
-      openTip(message.author, true)
-      dataTable[message.author.id]['balance'] += 10
-      message.author.send('Airdropped 10 CuriosityCoin')
+      openTip(message.author, true).then(() => {
+        dataTable[message.author.id]['balance'] += 10
+        message.author.send('Airdropped 10 CuriosityCoin')
+      })
     }
   } else if (message.content === '!mybalance') {
     try {
       message.author.send(`You have ${dataTable[message.author.id]['balance'] } CuriosityCoin`)
     } catch (err) {
-      openTip(message.author, true)
-
-      message.author.send(`You have ${dataTable[message.author.id]['balance'] } CuriosityCoin`)
+      openTip(message.author, true).then(() => {
+        message.author.send(`You have ${dataTable[message.author.id]['balance'] } CuriosityCoin`)
+      })
     }
   } else if (message.content === '!mywallet') {
     if (dataTable[message.author.id] !== null) {
